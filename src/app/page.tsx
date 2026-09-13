@@ -22,6 +22,7 @@ import {
   getStoredConfig,
   getStoredProducts,
 } from '../lib/store';
+import { supabase } from '../lib/supabase';
 import type { Order, AppConfig, Product } from '../types';
 import { formatUSD, formatBs, getStatusLabel } from '../lib/utils';
 
@@ -35,6 +36,33 @@ export default function DashboardPage() {
     setOrders(getStoredOrders());
     setConfig(getStoredConfig());
     setProducts(getStoredProducts());
+
+    if (supabase) {
+      supabase
+        .from('app_config')
+        .select('*')
+        .eq('id', 'global')
+        .single()
+        .then(({ data }) => {
+          if (data) setConfig(data);
+        });
+
+      supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data) setOrders(data);
+        });
+
+      supabase
+        .from('products')
+        .select('*, product_variants(*)')
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data) setProducts(data);
+        });
+    }
   }, []);
 
   // Métricas financieras reales

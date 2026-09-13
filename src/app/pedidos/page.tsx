@@ -43,7 +43,7 @@ export default function PedidosPage() {
         .select('*, order_items(*)')
         .order('created_at', { ascending: false })
         .then(({ data, error }) => {
-          if (!error && data && data.length > 0) {
+          if (!error && data) {
             const mapped: Order[] = data.map((d: any) => ({
               id: d.id,
               numero_orden: d.numero_orden,
