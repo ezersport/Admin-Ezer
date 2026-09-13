@@ -278,7 +278,7 @@ export default function OrderTrackingPage() {
                 </span>
 
                 <div className="space-y-2">
-                  {order.items.map((it, idx) => (
+                  {(order.items || []).map((it, idx) => (
                     <div
                       key={idx}
                       className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-xs"

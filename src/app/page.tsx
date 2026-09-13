@@ -19,6 +19,7 @@ import { WeeklyZoneChart } from '../components/WeeklyZoneChart';
 import { WhatsAppReceiptModal } from '../components/WhatsAppReceiptModal';
 import {
   getStoredOrders,
+  saveStoredOrders,
   getStoredConfig,
   getStoredProducts,
 } from '../lib/store';
@@ -49,10 +50,62 @@ export default function DashboardPage() {
 
       supabase
         .from('orders')
-        .select('*')
+        .select('*, order_items(*)')
         .order('created_at', { ascending: false })
         .then(({ data, error }) => {
-          if (!error && data) setOrders(data);
+          if (!error && data) {
+            const mapped: Order[] = data.map((d: any) => ({
+              id: d.id,
+              numero_orden: d.numero_orden,
+              cedula_cliente: d.cedula_cliente,
+              nombre_cliente: d.nombre_cliente,
+              apellido_cliente: d.apellido_cliente,
+              telefono_cliente: d.telefono_cliente,
+              tipo_destino: d.tipo_destino,
+              zona_entrega_id: d.zona_entrega_id || '',
+              zona_nombre: d.zona_nombre,
+              punto_encuentro: d.punto_encuentro,
+              empresa_envio: d.empresa_envio,
+              codigo_agencia: d.codigo_agencia,
+              estado_destino: d.estado_destino,
+              ciudad_destino: d.ciudad_destino,
+              direccion_detalle: d.direccion_detalle,
+              metodo_pago_codigo: d.metodo_pago_codigo,
+              referencia_pago: d.referencia_pago,
+              tasa_cambio_snapshot: Number(d.tasa_cambio_snapshot || 76.50),
+              total_unidades: Number(d.total_unidades || 1),
+              subtotal_usd: Number(d.subtotal_usd || 0),
+              costo_delivery_usd: Number(d.costo_delivery_usd || 0),
+              total_usd: Number(d.total_usd || 0),
+              total_bs: Number(d.total_bs || 0),
+              costo_total_produccion_usd: Number(d.costo_total_produccion_usd || 0),
+              ganancia_neta_usd: Number(d.ganancia_neta_usd || 0),
+              tipo_pago: d.tipo_pago || 'completo_100',
+              monto_pagado_usd: Number(d.monto_pagado_usd || d.total_usd || 0),
+              monto_pendiente_usd: Number(d.monto_pendiente_usd || 0),
+              disponibilidad_pedido: d.disponibilidad_pedido || 'stock_inmediato',
+              estado: d.estado,
+              items: (Array.isArray(d.order_items) ? d.order_items : []).map((it: any) => ({
+                id: it.id,
+                producto_id: it.producto_id,
+                nombre_producto: it.nombre_producto,
+                talla: it.talla,
+                tipo_variante: it.tipo_variante,
+                nombre_variante: it.nombre_variante,
+                cantidad: Number(it.cantidad || 1),
+                precio_unitario_aplicado_usd: Number(it.precio_unitario_aplicado_usd || 0),
+                costo_unitario_usd: Number(it.costo_unitario_usd || 0),
+                subtotal_venta_usd: Number(it.subtotal_venta_usd || 0),
+                subtotal_costo_usd: Number(it.subtotal_costo_usd || 0),
+                ganancia_item_usd: Number(it.ganancia_item_usd || 0),
+              })),
+              ticket_impreso: Boolean(d.ticket_impreso),
+              created_at: d.created_at,
+              updated_at: d.updated_at,
+            }));
+            setOrders(mapped);
+            saveStoredOrders(mapped);
+          }
         });
 
       supabase
@@ -267,7 +320,9 @@ export default function DashboardPage() {
                           {ord.total_unidades} prendas
                         </span>
                         <span className="text-xs text-slate-500 dark:text-slate-400 block truncate max-w-[180px]">
-                          {ord.items.map((it) => `${it.cantidad}x ${it.nombre_variante}`).join(', ')}
+                          {ord.items && ord.items.length > 0
+                            ? ord.items.map((it) => `${it.cantidad}x ${it.nombre_variante}`).join(', ')
+                            : 'Sin prendas registradas'}
                         </span>
                       </td>
 

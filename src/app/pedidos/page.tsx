@@ -395,7 +395,7 @@ export default function PedidosPage() {
                             <span className="font-bold text-slate-900 dark:text-white block">
                               {ord.total_unidades} prendas
                             </span>
-                            {ord.items.map((it, idx) => (
+                            {(ord.items || []).map((it, idx) => (
                               <div key={idx} className="text-xs text-slate-600 dark:text-slate-400">
                                 <span className="text-slate-900 dark:text-white font-bold">{it.cantidad}x</span>{' '}
                                 <span>{it.nombre_producto.split(' ')[0]}</span>{' '}

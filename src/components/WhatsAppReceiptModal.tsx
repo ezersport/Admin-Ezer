@@ -60,7 +60,7 @@ export const WhatsAppReceiptModal: React.FC<WhatsAppReceiptModalProps> = ({
     msg += `*Teléfono:* ${order.telefono_cliente}\n\n`;
 
     msg += `*📦 DETALLE DE PRENDAS:*\n`;
-    order.items.forEach((it) => {
+    (order.items || []).forEach((it) => {
       const estilo = it.tipo_variante === 'estampado' ? `Estampa: ${it.nombre_variante}` : `Color: ${it.nombre_variante}`;
       msg += `• ${it.cantidad}x ${it.nombre_producto} (Talla ${it.talla} - ${estilo})\n`;
     });

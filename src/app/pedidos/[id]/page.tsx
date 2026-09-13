@@ -150,7 +150,7 @@ export default function OrderDetailPage() {
               </div>
 
               <div className="space-y-3">
-                {order.items.map((item, idx) => (
+                {(order.items || []).map((item, idx) => (
                   <div
                     key={idx}
                     className="p-4 rounded-2xl bg-slate-50 dark:bg-[#091b33] border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
