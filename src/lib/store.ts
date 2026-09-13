@@ -194,14 +194,20 @@ export function getStoredCategories(): Category[] {
 
 export function saveStoredCategories(categories: Category[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  try {
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+  } catch (e) {
+    console.warn('LocalStorage write failed for categories', e);
+  }
 }
 
 export function getStoredProducts(): Product[] {
   if (typeof window === 'undefined') return INITIAL_PRODUCTS;
   const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
   if (!saved) {
-    localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+    try {
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+    } catch {}
     return INITIAL_PRODUCTS;
   }
   try {
@@ -213,10 +219,30 @@ export function getStoredProducts(): Product[] {
 
 export function saveStoredProducts(products: Product[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(products));
-  // Sincronización cruzada directa con la tienda web de Page Ezer
-  localStorage.setItem('ezer_products_clean_v3', JSON.stringify(products));
-  localStorage.setItem('ezer_admin_products_clean_v3', JSON.stringify(products));
+  try {
+    const raw = JSON.stringify(products);
+    localStorage.setItem(STORAGE_KEYS.PRODUCTS, raw);
+    // Sincronización cruzada directa con la tienda web de Page Ezer
+    localStorage.setItem('ezer_products_clean_v3', raw);
+    localStorage.setItem('ezer_admin_products_clean_v3', raw);
+  } catch (e) {
+    console.warn('LocalStorage quota exceeded in saveStoredProducts, saving lightweight copy', e);
+    try {
+      const lightweight = products.map((p) => ({
+        ...p,
+        imagen_principal: p.imagen_principal?.startsWith('data:')
+          ? 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80'
+          : p.imagen_principal,
+        imagenes_galeria: (p.imagenes_galeria || []).filter((img) => !img.startsWith('data:')),
+      }));
+      const serialized = JSON.stringify(lightweight);
+      localStorage.setItem(STORAGE_KEYS.PRODUCTS, serialized);
+      localStorage.setItem('ezer_products_clean_v3', serialized);
+      localStorage.setItem('ezer_admin_products_clean_v3', serialized);
+    } catch (err2) {
+      console.warn('Could not save lightweight products to localStorage:', err2);
+    }
+  }
   window.dispatchEvent(new CustomEvent('ezer-products-updated', { detail: { products } }));
 }
 
@@ -224,7 +250,9 @@ export function getStoredOrders(): Order[] {
   if (typeof window === 'undefined') return INITIAL_ORDERS;
   const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
   if (!saved) {
-    localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(INITIAL_ORDERS));
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(INITIAL_ORDERS));
+    } catch {}
     return INITIAL_ORDERS;
   }
   try {
@@ -236,8 +264,13 @@ export function getStoredOrders(): Order[] {
 
 export function saveStoredOrders(orders: Order[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(orders));
-  localStorage.setItem('ezer_orders_clean_v3', JSON.stringify(orders));
+  try {
+    const raw = JSON.stringify(orders);
+    localStorage.setItem(STORAGE_KEYS.ORDERS, raw);
+    localStorage.setItem('ezer_orders_clean_v3', raw);
+  } catch (e) {
+    console.warn('LocalStorage quota exceeded for orders', e);
+  }
   window.dispatchEvent(new CustomEvent('ezer-orders-updated', { detail: { orders } }));
 }
 

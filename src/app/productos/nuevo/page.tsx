@@ -212,43 +212,50 @@ export default function NuevoProductoPage() {
     setVariantes(variantes.filter((v) => v.id !== id));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (uploadingImage) {
+      alert('La foto se está subiendo al almacenamiento. Espera unos segundos...');
+      return;
+    }
     if (!nombre.trim()) {
       alert('Por favor introduce el nombre del producto');
       return;
     }
 
-    const newProduct: Product = {
-      id: `prod-${Date.now()}`,
-      codigo_sku: sku.toUpperCase(),
-      nombre: nombre.trim(),
-      slug: nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-      categoria,
-      tela_material: telaMaterial,
-      descripcion,
-      precio_detal_usd: detalNum,
-      precio_3_piezas_usd: tier3Num,
-      precio_mayor_usd: mayorNum,
-      costo_produccion_usd: costoNum,
-      disponibilidad: disponibilidad,
-      dias_confeccion: disponibilidad === 'bajo_pedido' ? (parseInt(diasConfeccion, 10) || 5) : 0,
-      imagen_principal: imagenPrincipal || 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80',
-      imagenes_galeria: imagenesSecundarias,
-      activo: true,
-      destacado: true,
-      variantes,
-      created_at: new Date().toISOString(),
-    };
+    setSubmitting(true);
+    try {
+      const newProduct: Product = {
+        id: `prod-${Date.now()}`,
+        codigo_sku: sku.toUpperCase(),
+        nombre: nombre.trim(),
+        slug: nombre.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        categoria,
+        tela_material: telaMaterial,
+        descripcion,
+        precio_detal_usd: detalNum,
+        precio_3_piezas_usd: tier3Num,
+        precio_mayor_usd: mayorNum,
+        costo_produccion_usd: costoNum,
+        disponibilidad: disponibilidad,
+        dias_confeccion: disponibilidad === 'bajo_pedido' ? (parseInt(diasConfeccion, 10) || 5) : 0,
+        imagen_principal: imagenPrincipal || 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80',
+        imagenes_galeria: imagenesSecundarias,
+        activo: true,
+        destacado: true,
+        variantes,
+        created_at: new Date().toISOString(),
+      };
 
-    const currentProducts = getStoredProducts();
-    saveStoredProducts([newProduct, ...currentProducts]);
+      const currentProducts = getStoredProducts();
+      saveStoredProducts([newProduct, ...currentProducts]);
 
-    // Persistir también en Supabase si está conectado
-    if (supabase) {
-      (async () => {
+      // Persistir también en Supabase si está conectado
+      if (supabase) {
         try {
-          await supabase.from('products').insert({
+          const { error: insertError } = await supabase.from('products').insert({
             id: newProduct.id,
             codigo_sku: newProduct.codigo_sku,
             nombre: newProduct.nombre,
@@ -266,6 +273,10 @@ export default function NuevoProductoPage() {
             activo: newProduct.activo,
             destacado: newProduct.destacado,
           });
+
+          if (insertError) {
+            console.error('Supabase product insert error:', insertError);
+          }
 
           // Insertar variantes si se configuraron (con manejo tolerante de constraint)
           if (variantes.length > 0) {
@@ -291,12 +302,17 @@ export default function NuevoProductoPage() {
             }
           }
         } catch (err) {
-          console.warn('Supabase product insert error:', err);
+          console.warn('Supabase network or server error:', err);
         }
-      })();
-    }
+      }
 
-    router.push('/productos');
+      router.push('/productos');
+    } catch (err: any) {
+      console.error('Error guardando producto:', err);
+      alert(`Error al guardar producto: ${err?.message || 'Error desconocido'}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -851,10 +867,13 @@ export default function NuevoProductoPage() {
 
             <button
               type="submit"
-              className="flex items-center gap-2.5 bg-[#009fe3] hover:bg-[#0082ba] text-white px-8 py-3.5 rounded-2xl text-base font-bold shadow-xl active:scale-95 transition-all cursor-pointer"
+              disabled={submitting || uploadingImage}
+              className={`flex items-center gap-2.5 bg-[#009fe3] hover:bg-[#0082ba] text-white px-8 py-3.5 rounded-2xl text-base font-bold shadow-xl active:scale-95 transition-all ${
+                submitting || uploadingImage ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
               <Save className="w-5 h-5" />
-              <span>Guardar Prenda en Catálogo</span>
+              <span>{submitting ? 'Guardando Prenda...' : uploadingImage ? 'Subiendo Foto...' : 'Guardar Prenda en Catálogo'}</span>
             </button>
           </div>
         </form>

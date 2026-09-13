@@ -171,8 +171,8 @@ export default function EditarProductoPage({ params }: PageProps) {
   const gananciaMayor = mayorNum - costoNum;
   const margenMayor = mayorNum > 0 ? Math.round((gananciaMayor / mayorNum) * 100) : 0;
 
-  // Manejo de carga de imagen local / Base64
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Manejo de carga de imagen local / Supabase Storage
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -180,9 +180,33 @@ export default function EditarProductoPage({ params }: PageProps) {
     const reader = new FileReader();
     reader.onloadend = () => {
       setImagenPrincipal(reader.result as string);
-      setUploadingImage(false);
     };
     reader.readAsDataURL(file);
+
+    if (supabase) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `prod_${Date.now()}_main.${fileExt}`;
+        const { data, error } = await supabase.storage
+          .from('products')
+          .upload(fileName, file);
+
+        if (!error && data) {
+          const { data: publicData } = supabase.storage
+            .from('products')
+            .getPublicUrl(fileName);
+          if (publicData?.publicUrl) {
+            setImagenPrincipal(publicData.publicUrl);
+          }
+        }
+      } catch (err) {
+        console.warn('Storage upload fallback to base64', err);
+      } finally {
+        setUploadingImage(false);
+      }
+    } else {
+      setUploadingImage(false);
+    }
   };
 
   // Variantes
