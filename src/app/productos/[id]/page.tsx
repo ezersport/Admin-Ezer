@@ -20,6 +20,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { AdminHeader } from '../../../components/AdminHeader';
+import { ColorTonePicker } from '../../../components/ColorTonePicker';
 import {
   getStoredProducts,
   saveStoredProducts,
@@ -50,7 +51,7 @@ export default function EditarProductoPage({ params }: PageProps) {
   const [telaMaterial, setTelaMaterial] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [disponibilidad, setDisponibilidad] = useState<'inmediato' | 'bajo_pedido'>('inmediato');
-  const [diasConfeccion, setDiasConfeccion] = useState('5');
+  const [diasConfeccion, setDiasConfeccion] = useState('2');
 
   // Imágenes
   const [imagenPrincipal, setImagenPrincipal] = useState<string>('');
@@ -66,10 +67,12 @@ export default function EditarProductoPage({ params }: PageProps) {
 
   // Variantes
   const [variantes, setVariantes] = useState<ProductVariant[]>([]);
-  const [newTalla, setNewTalla] = useState('Talla 4');
+  const [newTalla, setNewTalla] = useState('S');
   const [newTipo, setNewTipo] = useState<VariantStyleType>('sublimacion');
   const [newNombreVar, setNewNombreVar] = useState('');
-  const [newColorHex, setNewColorHex] = useState('#009fe3');
+  const [newColorName, setNewColorName] = useState('Rosado Pastel');
+  const [newColorHex, setNewColorHex] = useState('#F7C6D0');
+  const [newVariantMode, setNewVariantMode] = useState<'stock' | 'bajo_pedido'>('stock');
   const [newStock, setNewStock] = useState('10');
 
   useEffect(() => {
@@ -126,7 +129,7 @@ export default function EditarProductoPage({ params }: PageProps) {
     setTelaMaterial(data.tela_material || '');
     setDescripcion(data.descripcion || '');
     setDisponibilidad((data.disponibilidad as any) || 'inmediato');
-    setDiasConfeccion(String(data.dias_confeccion || '5'));
+    setDiasConfeccion(String(data.dias_confeccion || '2'));
     setImagenPrincipal(data.imagen_principal || '');
     setImagenesSecundarias(Array.isArray(data.imagenes_galeria) ? data.imagenes_galeria : []);
 
@@ -211,29 +214,44 @@ export default function EditarProductoPage({ params }: PageProps) {
 
   // Variantes
   const handleAddVariant = () => {
-    if (!newNombreVar.trim()) {
-      alert('Por favor ingresa un nombre para la variante o estampa (ej. Spiderman Azul)');
-      return;
-    }
+    const estampaName = newNombreVar.trim() || newColorName || 'Estándar';
+    const isBajoPedido = newVariantMode === 'bajo_pedido';
 
     const newVar: ProductVariant = {
       id: `var-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       producto_id: id,
       talla: newTalla,
       tipo_variante: newTipo,
-      nombre_variante: newNombreVar.trim(),
-      color_base: newNombreVar.trim(),
+      nombre_variante: estampaName,
+      color_base: newColorName,
       codigo_hex: newColorHex,
-      stock_disponible: parseInt(newStock, 10) || 0,
+      stock_disponible: isBajoPedido ? 0 : (parseInt(newStock, 10) || 0),
       stock_minimo_alerta: 3,
     };
 
     setVariantes([...variantes, newVar]);
-    setNewNombreVar('');
   };
 
   const handleRemoveVariant = (varId: string) => {
     setVariantes(variantes.filter((v) => v.id !== varId));
+  };
+
+  const handleStockChange = (varId: string, stockVal: number) => {
+    setVariantes(
+      variantes.map((v) => (v.id === varId ? { ...v, stock_disponible: Math.max(0, stockVal) } : v))
+    );
+  };
+
+  const handleToggleBajoPedido = (varId: string) => {
+    setVariantes(
+      variantes.map((v) => (v.id === varId ? { ...v, stock_disponible: 0 } : v))
+    );
+  };
+
+  const handleToggleStock = (varId: string) => {
+    setVariantes(
+      variantes.map((v) => (v.id === varId ? { ...v, stock_disponible: 10 } : v))
+    );
   };
 
   // Guardar Cambios
@@ -265,7 +283,7 @@ export default function EditarProductoPage({ params }: PageProps) {
       precio_mayor_usd: mayorNum || detalNum,
       costo_produccion_usd: costoNum,
       disponibilidad,
-      dias_confeccion: disponibilidad === 'bajo_pedido' ? (parseInt(diasConfeccion, 10) || 5) : 0,
+      dias_confeccion: parseInt(diasConfeccion, 10) || 2,
       imagen_principal: imagenPrincipal,
       imagenes_galeria: imagenesSecundarias,
       activo: true,
@@ -377,13 +395,13 @@ export default function EditarProductoPage({ params }: PageProps) {
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-[#009fe3] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Volver a Catálogo</span>
+            <span>Volver a Inventario</span>
           </Link>
 
           <button
             type="button"
             onClick={handleDelete}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
           >
             <Trash2 className="w-4 h-4" />
             <span>Eliminar Prenda</span>
@@ -479,7 +497,7 @@ export default function EditarProductoPage({ params }: PageProps) {
             {/* Disponibilidad: En Stock vs Bajo Pedido */}
             <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-2">
-                Modalidad de Entrega & Disponibilidad: *
+                Modalidad Predominante & Disponibilidad: *
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button
@@ -531,32 +549,31 @@ export default function EditarProductoPage({ params }: PageProps) {
                 </button>
               </div>
 
-              {disponibilidad === 'bajo_pedido' && (
-                <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-amber-500" />
-                    <div>
-                      <span className="font-bold text-sm text-slate-900 dark:text-white block">
-                        Tiempo estimado de confección:
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        Indica los días hábiles que tarda el taller en confeccionar.
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={diasConfeccion}
-                      onChange={(e) => setDiasConfeccion(e.target.value)}
-                      className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-center font-bold text-base text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">días hábiles</span>
+              {/* Tiempo de confección SIEMPRE configurable para prendas o variantes bajo pedido */}
+              <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+                  <div>
+                    <span className="font-bold text-sm text-slate-900 dark:text-white block">
+                      Tiempo estimado de confección en taller:
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Indica los días hábiles que tarda el taller si el cliente encarga piezas bajo pedido (ej. 2 días hábiles).
+                    </span>
                   </div>
                 </div>
-              )}
+                <div className="flex items-center gap-2 shrink-0">
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={diasConfeccion}
+                    onChange={(e) => setDiasConfeccion(e.target.value)}
+                    className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-center font-bold text-base text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                  />
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">días hábiles</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -695,113 +712,269 @@ export default function EditarProductoPage({ params }: PageProps) {
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-slate-900 dark:text-white text-lg sm:text-xl flex items-center gap-2.5">
                 <Palette className="w-5 h-5 text-[#009fe3]" />
-                <span>Variantes de Talla, Estampados y Stock ({variantes.length})</span>
+                <span>Variantes de Talla, Color, Estampados y Stock ({variantes.length})</span>
               </h3>
             </div>
 
-            {/* Formulario para agregar variante rápida */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-6 gap-3 items-end">
-              <div>
-                <label className="text-xs font-bold text-slate-500 block mb-1">Talla</label>
-                <select
-                  value={newTalla}
-                  onChange={(e) => setNewTalla(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 dark:text-white"
-                >
-                  <option value="2">Talla 2</option>
-                  <option value="4">Talla 4</option>
-                  <option value="6">Talla 6</option>
-                  <option value="8">Talla 8</option>
-                  <option value="10">Talla 10</option>
-                  <option value="12">Talla 12</option>
-                  <option value="14">Talla 14</option>
-                  <option value="S">Talla S</option>
-                  <option value="M">Talla M</option>
-                  <option value="L">Talla L</option>
-                  <option value="XL">Talla XL</option>
-                  <option value="Única">Talla Única</option>
-                </select>
+            {/* Selector de modo y creación de variante */}
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Disponibilidad de la variante a crear:
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewVariantMode('stock')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                      newVariantMode === 'stock'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    <span>📦 En Stock Físico</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewVariantMode('bajo_pedido')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                      newVariantMode === 'bajo_pedido'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>⏱️ Bajo Pedido (Confección a medida)</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="text-xs font-bold text-slate-500 block mb-1">Nombre / Estampa</label>
-                <input
-                  type="text"
-                  value={newNombreVar}
-                  onChange={(e) => setNewNombreVar(e.target.value)}
-                  placeholder="Ej: Mickey Azul Rey o Spiderman"
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium"
-                />
-              </div>
+              {/* Formulario para agregar variante rápida */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                {/* Talla y Botones Rápidos de Talla */}
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Talla</label>
+                  <select
+                    value={newTalla}
+                    onChange={(e) => setNewTalla(e.target.value)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 dark:text-white mb-1.5"
+                  >
+                    <option value="2">Talla 2</option>
+                    <option value="4">Talla 4</option>
+                    <option value="6">Talla 6</option>
+                    <option value="8">Talla 8</option>
+                    <option value="10">Talla 10</option>
+                    <option value="12">Talla 12</option>
+                    <option value="14">Talla 14</option>
+                    <option value="S">Talla S</option>
+                    <option value="M">Talla M</option>
+                    <option value="L">Talla L</option>
+                    <option value="XL">Talla XL</option>
+                    <option value="Única">Talla Única</option>
+                  </select>
 
-              <div>
-                <label className="text-xs font-bold text-slate-500 block mb-1">Técnica</label>
-                <select
-                  value={newTipo}
-                  onChange={(e) => setNewTipo(e.target.value as any)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 dark:text-white"
-                >
-                  <option value="sublimacion">Sublimación</option>
-                  <option value="dtf">Estampado DTF</option>
-                  <option value="vinil">Vinil Textil</option>
-                  <option value="unicolor">Unicolor Liso</option>
-                  <option value="estampado">Estampado General</option>
-                </select>
-              </div>
+                  <div className="flex flex-wrap gap-1">
+                    {['S', 'M', 'L', 'XL'].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setNewTalla(t)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                          newTalla === t
+                            ? 'bg-[#009fe3] text-white'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-500 block mb-1">Stock</label>
-                <input
-                  type="number"
-                  value={newStock}
-                  onChange={(e) => setNewStock(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white text-center"
-                />
-              </div>
+                {/* Color de la Prenda con Barra de Tono */}
+                <div className="sm:col-span-3">
+                  <ColorTonePicker
+                    colorName={newColorName}
+                    colorHex={newColorHex}
+                    onChange={(name, hex) => {
+                      setNewColorName(name);
+                      setNewColorHex(hex);
+                    }}
+                  />
+                </div>
 
-              <div>
-                <button
-                  type="button"
-                  onClick={handleAddVariant}
-                  className="w-full inline-flex items-center justify-center gap-1 bg-[#009fe3] hover:bg-[#0082ba] text-white py-2 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Añadir</span>
-                </button>
+                {/* Técnica */}
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Técnica</label>
+                  <select
+                    value={newTipo}
+                    onChange={(e) => setNewTipo(e.target.value as any)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 dark:text-white"
+                  >
+                    <option value="sublimacion">Sublimación</option>
+                    <option value="dtf">Estampado DTF</option>
+                    <option value="vinil">Vinil Textil</option>
+                    <option value="unicolor">Unicolor Liso</option>
+                    <option value="estampado">Estampado General</option>
+                  </select>
+                </div>
+
+                {/* Nombre / Estampa */}
+                <div className="sm:col-span-3">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Nombre / Estampa (Opcional)</label>
+                  <input
+                    type="text"
+                    value={newNombreVar}
+                    onChange={(e) => setNewNombreVar(e.target.value)}
+                    placeholder="Ej: Los Ángeles o Mickey"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium"
+                  />
+                </div>
+
+                {/* Stock (Oculto si es Bajo Pedido) */}
+                {newVariantMode === 'stock' ? (
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Stock (piezas)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newStock}
+                      onChange={(e) => setNewStock(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white text-center"
+                    />
+                  </div>
+                ) : (
+                  <div className="sm:col-span-2 flex items-center justify-center p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-[11px] font-bold">
+                    ⏱️ Confección
+                  </div>
+                )}
+
+                {/* Botón Añadir */}
+                <div className="sm:col-span-12 flex items-center justify-between pt-1 flex-wrap gap-2">
+                  <div className="text-xs text-slate-500 font-medium">
+                    Prenda: <strong className="text-slate-800 dark:text-slate-200">{newColorName}</strong> • Talla <strong className="text-slate-800 dark:text-slate-200">{newTalla}</strong> • {newVariantMode === 'stock' ? `${newStock} pzs` : 'Bajo pedido'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddVariant}
+                    className="inline-flex items-center gap-1.5 bg-[#009fe3] hover:bg-[#0082ba] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Añadir Variante a este Color</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Listado de variantes existentes */}
-            <div className="space-y-2">
-              {variantes.map((v) => (
+            {/* Listado de variantes existentes agrupadas por Color */}
+            <div className="space-y-4">
+              {Object.entries(
+                variantes.reduce((acc, v) => {
+                  const colKey = v.color_base || v.nombre_variante || 'Color Estándar';
+                  if (!acc[colKey]) {
+                    acc[colKey] = {
+                      colorName: colKey,
+                      colorHex: v.codigo_hex || '#009fe3',
+                      items: [],
+                    };
+                  }
+                  acc[colKey].items.push(v);
+                  return acc;
+                }, {} as Record<string, { colorName: string; colorHex: string; items: ProductVariant[] }>)
+              ).map(([colKey, group]) => (
                 <div
-                  key={v.id}
-                  className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-sm"
+                  key={colKey}
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/60 shadow-xs"
                 >
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="w-4 h-4 rounded-full border border-slate-300 shrink-0"
-                      style={{ backgroundColor: v.codigo_hex }}
-                    />
-                    <span className="font-bold text-slate-900 dark:text-white">{v.nombre_variante}</span>
-                    <span className="text-xs bg-blue-500/15 text-[#009fe3] px-2 py-0.5 rounded-full font-bold">
-                      {v.talla}
-                    </span>
-                    <span className="text-xs text-slate-400 capitalize">({v.tipo_variante})</span>
+                  {/* Encabezado del grupo de color */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="w-4 h-4 rounded-full border border-slate-300 shadow-xs shrink-0"
+                        style={{ backgroundColor: group.colorHex }}
+                      />
+                      <span className="font-black text-xs sm:text-sm text-slate-800 dark:text-white">
+                        {group.colorName}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        ({group.items.length} {group.items.length === 1 ? 'talla' : 'tallas'})
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-4">
-                    <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
-                      Stock: <strong>{v.stock_disponible} pzs</strong>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveVariant(v.id)}
-                      className="text-slate-400 hover:text-rose-500 transition-colors p-1"
-                      title="Eliminar variante"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  {/* Tallas de este color */}
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {group.items.map((v) => {
+                      const isBajoPedido = v.stock_disponible <= 0;
+                      return (
+                        <div
+                          key={v.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="text-xs bg-blue-500/15 text-[#009fe3] px-2.5 py-0.5 rounded-lg font-black">
+                              Talla {v.talla}
+                            </span>
+                            {v.nombre_variante && v.nombre_variante !== v.color_base && (
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {v.nombre_variante}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-slate-400 capitalize">
+                              ({v.tipo_variante})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 justify-between sm:justify-end">
+                            {/* Control de Stock editable / Estado Bajo Pedido */}
+                            {isBajoPedido ? (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center gap-1 border border-amber-500/20">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>Bajo Pedido</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStock(v.id)}
+                                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 underline cursor-pointer"
+                                >
+                                  + Asignar Stock
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-500 font-medium">Stock:</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={v.stock_disponible}
+                                  onChange={(e) => handleStockChange(v.id, parseInt(e.target.value, 10) || 0)}
+                                  className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-center font-mono font-bold text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3]"
+                                  title="Editar stock directamente"
+                                />
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">pzs</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleBajoPedido(v.id)}
+                                  className="text-[11px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 underline cursor-pointer ml-1"
+                                >
+                                  Cambiar a Bajo Pedido
+                                </button>
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveVariant(v.id)}
+                              className="text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                              title="Eliminar talla"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}

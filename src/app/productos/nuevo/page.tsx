@@ -20,6 +20,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { AdminHeader } from '../../../components/AdminHeader';
+import { ColorTonePicker } from '../../../components/ColorTonePicker';
 import {
   getStoredProducts,
   saveStoredProducts,
@@ -63,7 +64,7 @@ export default function NuevoProductoPage() {
   const [telaMaterial, setTelaMaterial] = useState('Algodón Fleece Perchado 100% Calidez');
   const [descripcion, setDescripcion] = useState('');
   const [disponibilidad, setDisponibilidad] = useState<'inmediato' | 'bajo_pedido'>('inmediato');
-  const [diasConfeccion, setDiasConfeccion] = useState<string>('5');
+  const [diasConfeccion, setDiasConfeccion] = useState<string>('2');
 
   // Manejo de Imágenes (Principal y Secundarias)
   const [imagenPrincipal, setImagenPrincipal] = useState<string>('');
@@ -83,10 +84,12 @@ export default function NuevoProductoPage() {
   const [variantes, setVariantes] = useState<ProductVariant[]>([]);
 
   // Nueva variante rápida
-  const [newTalla, setNewTalla] = useState('Talla 4');
+  const [newTalla, setNewTalla] = useState('S');
   const [newTipo, setNewTipo] = useState<VariantStyleType>('sublimacion');
   const [newNombreVar, setNewNombreVar] = useState('');
-  const [newColorHex, setNewColorHex] = useState('#009fe3');
+  const [newColorName, setNewColorName] = useState('Rosado Pastel');
+  const [newColorHex, setNewColorHex] = useState('#F7C6D0');
+  const [newVariantMode, setNewVariantMode] = useState<'stock' | 'bajo_pedido'>('stock');
   const [newStock, setNewStock] = useState('10');
 
   useEffect(() => {
@@ -193,23 +196,42 @@ export default function NuevoProductoPage() {
   };
 
   const handleAddVariant = () => {
-    if (!newNombreVar.trim()) return;
+    const estampaName = newNombreVar.trim() || newColorName || 'Estándar';
+    const isBajoPedido = newVariantMode === 'bajo_pedido';
+
     const newV: ProductVariant = {
-      id: `var-${Date.now()}`,
+      id: `var-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       talla: newTalla,
       tipo_variante: newTipo,
-      nombre_variante: newNombreVar.trim(),
-      color_base: newNombreVar.trim(),
+      nombre_variante: estampaName,
+      color_base: newColorName,
       codigo_hex: newColorHex,
-      stock_disponible: parseInt(newStock) || 0,
+      stock_disponible: isBajoPedido ? 0 : (parseInt(newStock, 10) || 0),
       stock_minimo_alerta: 3,
     };
     setVariantes([...variantes, newV]);
-    setNewNombreVar('');
   };
 
   const handleRemoveVariant = (id: string) => {
     setVariantes(variantes.filter((v) => v.id !== id));
+  };
+
+  const handleStockChange = (varId: string, stockVal: number) => {
+    setVariantes(
+      variantes.map((v) => (v.id === varId ? { ...v, stock_disponible: Math.max(0, stockVal) } : v))
+    );
+  };
+
+  const handleToggleBajoPedido = (varId: string) => {
+    setVariantes(
+      variantes.map((v) => (v.id === varId ? { ...v, stock_disponible: 0 } : v))
+    );
+  };
+
+  const handleToggleStock = (varId: string) => {
+    setVariantes(
+      variantes.map((v) => (v.id === varId ? { ...v, stock_disponible: 10 } : v))
+    );
   };
 
   const [submitting, setSubmitting] = useState(false);
@@ -240,7 +262,7 @@ export default function NuevoProductoPage() {
         precio_mayor_usd: mayorNum,
         costo_produccion_usd: costoNum,
         disponibilidad: disponibilidad,
-        dias_confeccion: disponibilidad === 'bajo_pedido' ? (parseInt(diasConfeccion, 10) || 5) : 0,
+        dias_confeccion: parseInt(diasConfeccion, 10) || 2,
         imagen_principal: imagenPrincipal || 'https://images.unsplash.com/photo-1519238263530-99bdd11df2ea?w=800&auto=format&fit=crop&q=80',
         imagenes_galeria: imagenesSecundarias,
         activo: true,
@@ -291,9 +313,9 @@ export default function NuevoProductoPage() {
               stock_disponible: v.stock_disponible,
               stock_minimo_alerta: v.stock_minimo_alerta || 3,
             }));
-            const { error: varError } = await supabase.from('product_variants').insert(varsToInsert);
-            if (varError && varError.message.includes('check constraint')) {
-              // Fallback para esquemas que aún tengan check ('unicolor', 'estampado')
+
+            const { error: varErr } = await supabase.from('product_variants').insert(varsToInsert);
+            if (varErr && varErr.message.includes('check constraint')) {
               const fallbackVars = varsToInsert.map((v) => ({
                 ...v,
                 tipo_variante: v.tipo_variante === 'unicolor' ? 'unicolor' : 'estampado',
@@ -316,216 +338,144 @@ export default function NuevoProductoPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen">
+    <main className="flex-1 flex flex-col min-h-screen">
       <AdminHeader
-        title="Registrar Prenda de Taller"
-        subtitle="Agrega modelos con costos de corte, escalas de precios y fotos"
+        title="Crear Nueva Prenda"
+        subtitle="Registra ropa deportiva, trajes de baño o pijamas con costos exactos de taller"
       />
 
-      <main className="flex-1 p-4 sm:p-8 max-w-5xl mx-auto w-full space-y-8">
-        {/* Barra superior de navegación */}
+      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full space-y-6">
         <div className="flex items-center justify-between">
           <Link
             href="/productos"
-            className="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors font-semibold cursor-pointer"
+            className="inline-flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-[#009fe3] transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Volver a Inventario</span>
           </Link>
-
-          <span className="text-sm text-slate-500 dark:text-slate-400">
-            SKU Asignado: <strong className="font-mono text-slate-900 dark:text-white">{sku}</strong>
-          </span>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
-          {/* SECCIÓN 1: DATOS BÁSICOS DEL PRODUCTO */}
+          {/* SECCIÓN 1: DATOS BÁSICOS */}
           <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
             <h3 className="font-bold text-slate-900 dark:text-white text-lg sm:text-xl flex items-center gap-2.5">
               <Package className="w-5 h-5 text-[#009fe3]" />
               <span>Identificación de la Prenda</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  Nombre del Producto: *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  placeholder="Ej: Conjunto Suéter & Mono Spiderman Niño"
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#009fe3] rounded-2xl px-4 py-3 text-base text-slate-900 dark:text-white focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  Tipo de Recurso / Categoría: *
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Categoría
                 </label>
                 <select
                   value={categoria}
                   onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#009fe3] rounded-2xl px-4 py-3 text-base text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3] cursor-pointer"
                 >
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.slug}>
-                      {c.nombre}
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.slug}>
+                      {cat.nombre}
                     </option>
                   ))}
                 </select>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                  Tela y Material de Confección
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Código SKU de Taller
+                </label>
+                <input
+                  type="text"
+                  value={sku}
+                  onChange={(e) => setSku(e.target.value.toUpperCase())}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-mono uppercase text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3]"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Nombre Oficial de la Prenda *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Suéter Oversize Niños Mickey Mouse"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Tela o Composición Textil
                 </label>
                 <input
                   type="text"
                   value={telaMaterial}
                   onChange={(e) => setTelaMaterial(e.target.value)}
-                  placeholder="Ej: Algodón Fleece Perchado 100% Antialérgico"
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#009fe3] rounded-2xl px-4 py-3 text-base text-slate-900 dark:text-white focus:outline-none"
+                  placeholder="Ej: Algodón Fleece Perchado 100%"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3]"
                 />
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                    Código SKU: *
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setSku(generateSKU(categoria))}
-                    className="inline-flex items-center gap-1 text-xs text-[#009fe3] hover:underline font-bold transition-all cursor-pointer"
-                    title="Generar un nuevo código aleatorio"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Generar otro SKU</span>
-                  </button>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Disponibilidad Predominante
+                </label>
+                <select
+                  value={disponibilidad}
+                  onChange={(e) => setDisponibilidad(e.target.value as any)}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3] cursor-pointer"
+                >
+                  <option value="inmediato">🟢 En Stock Físico (Despacho 24-48h)</option>
+                  <option value="bajo_pedido">🟡 Bajo Pedido (Confección a Medida)</option>
+                </select>
+              </div>
+
+              {/* Tiempo de Confección SIEMPRE configurable */}
+              <div className="md:col-span-2 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+                  <div>
+                    <span className="font-bold text-sm text-slate-900 dark:text-white block">
+                      Tiempo estimado de confección en taller:
+                    </span>
+                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                      Indica los días hábiles que tarda el taller para pedidos bajo encargo (ej. 2 días hábiles).
+                    </span>
+                  </div>
                 </div>
-                <div className="relative">
+                <div className="flex items-center gap-2 shrink-0">
                   <input
-                    type="text"
-                    required
-                    value={sku}
-                    onChange={(e) => setSku(e.target.value.toUpperCase())}
-                    placeholder="EZ-KID-4821"
-                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#009fe3] rounded-2xl pl-4 pr-28 py-3 text-base font-mono text-slate-900 dark:text-white focus:outline-none uppercase font-bold"
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={diasConfeccion}
+                    onChange={(e) => setDiasConfeccion(e.target.value)}
+                    className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-center font-bold text-base text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setSku(generateSKU(categoria))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-xl bg-[#009fe3]/15 hover:bg-[#009fe3]/25 text-[#009fe3] border border-[#009fe3]/30 text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                  >
-                    ⚡ Auto-SKU
-                  </button>
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">días hábiles</span>
                 </div>
               </div>
-            </div>
 
-            <div>
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-1.5">
-                Descripción / Tamaños Disponibles:
-              </label>
-              <textarea
-                rows={3}
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                placeholder="Ej: Tamaños disponibles Talla 2 a Talla 14. Conjunto abrigado con capucha forrada y mono jogger con elástico suave."
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 focus:border-[#009fe3] rounded-2xl p-4 text-base text-slate-900 dark:text-white focus:outline-none resize-none"
-              />
-            </div>
-
-            {/* Disponibilidad: En Stock vs Bajo Pedido */}
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block mb-2">
-                Modalidad de Entrega & Disponibilidad: *
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setDisponibilidad('inmediato')}
-                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                    disponibilidad === 'inmediato'
-                      ? 'border-emerald-500 bg-emerald-500/10 dark:bg-emerald-500/15 ring-2 ring-emerald-500/30'
-                      : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 hover:border-slate-400'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-full mt-0.5 border-2 flex items-center justify-center ${
-                    disponibilidad === 'inmediato' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-400'
-                  }`}>
-                    {disponibilidad === 'inmediato' && <div className="w-2 h-2 rounded-full bg-white" />}
-                  </div>
-                  <div>
-                    <span className="font-bold text-sm block text-slate-900 dark:text-white">
-                      🟢 En Stock (Entrega Inmediata)
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                      Piezas ya confeccionadas en taller listas para despacho en 24-48h.
-                    </span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setDisponibilidad('bajo_pedido')}
-                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                    disponibilidad === 'bajo_pedido'
-                      ? 'border-amber-500 bg-amber-500/10 dark:bg-amber-500/15 ring-2 ring-amber-500/30'
-                      : 'border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 hover:border-slate-400'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-full mt-0.5 border-2 flex items-center justify-center ${
-                    disponibilidad === 'bajo_pedido' ? 'border-amber-500 bg-amber-500' : 'border-slate-400'
-                  }`}>
-                    {disponibilidad === 'bajo_pedido' && <div className="w-2 h-2 rounded-full bg-white" />}
-                  </div>
-                  <div>
-                    <span className="font-bold text-sm block text-slate-900 dark:text-white">
-                      🟡 Bajo Pedido («Mándalo a Hacer»)
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 block">
-                      Se confecciona bajo encargo o personalizado en taller.
-                    </span>
-                  </div>
-                </button>
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Descripción o Detalles de Taller
+                </label>
+                <textarea
+                  rows={2}
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  placeholder="Instrucciones de lavado, horma de la prenda..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3]"
+                />
               </div>
-
-              {disponibilidad === 'bajo_pedido' && (
-                <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-amber-500" />
-                    <div>
-                      <span className="font-bold text-sm text-slate-900 dark:text-white block">
-                        Tiempo estimado de confección:
-                      </span>
-                      <span className="text-xs text-slate-500 dark:text-slate-400">
-                        Indica los días hábiles que tarda el taller en producir y embalar.
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max="30"
-                      value={diasConfeccion}
-                      onChange={(e) => setDiasConfeccion(e.target.value)}
-                      className="w-20 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-center font-bold text-base text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">días hábiles</span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* SECCIÓN 2: CARGA DE IMÁGENES (PRINCIPAL Y SECUNDARIAS) */}
+          {/* SECCIÓN 2: CARGA DE IMÁGENES */}
           <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
             <h3 className="font-bold text-slate-900 dark:text-white text-lg sm:text-xl flex items-center gap-2.5">
               <ImageIcon className="w-5 h-5 text-[#009fe3]" />
@@ -574,7 +524,7 @@ export default function NuevoProductoPage() {
                 </div>
               </div>
 
-              {/* IMÁGENES SECUNDARIAS / GALERÍA */}
+              {/* IMÁGENES SECUNDARIAS */}
               <div className="space-y-3">
                 <label className="text-sm font-bold text-slate-700 dark:text-slate-300 block">
                   Añadir Imágenes Secundarias:
@@ -598,16 +548,15 @@ export default function NuevoProductoPage() {
                         >
                           <img
                             src={img}
-                            alt={`Secundaria ${idx + 1}`}
+                            alt={`Secundaria ${idx}`}
                             className="w-full h-full object-cover"
                           />
                           <button
                             type="button"
                             onClick={() => removeSecondaryImage(idx)}
-                            className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-md shadow hover:bg-rose-700"
-                            title="Quitar foto"
+                            className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-md"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X className="w-3 h-3" />
                           </button>
                         </div>
                       ))}
@@ -616,7 +565,7 @@ export default function NuevoProductoPage() {
                     <div className="text-center py-4">
                       <ImageIcon className="w-8 h-8 text-slate-400 mx-auto mb-1.5" />
                       <p className="text-xs text-slate-500">
-                        Añade fotos de detalles, espalda o estampados adicionales
+                        Fotos de detalle, reverso o modelos vistiendo la prenda
                       </p>
                     </div>
                   )}
@@ -625,234 +574,343 @@ export default function NuevoProductoPage() {
             </div>
           </div>
 
-          {/* SECCIÓN 3: PRECIOS Y COSTOS DE PRODUCCIÓN */}
+          {/* SECCIÓN 3: PRECIOS Y COSTOS */}
           <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
             <h3 className="font-bold text-slate-900 dark:text-white text-lg sm:text-xl flex items-center gap-2.5">
               <TrendingUp className="w-5 h-5 text-emerald-500" />
-              <span>Costos de Taller y Escala de Precios</span>
+              <span>Costo de Taller y Precios por Volumen</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              {/* Costo de Taller */}
-              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40">
-                <label className="text-xs font-bold text-amber-800 dark:text-amber-400 block mb-1">
-                  Costo de Fabricación ($)
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                  Costo de Confección ($)
                 </label>
                 <input
                   type="number"
-                  step="0.1"
+                  step="0.01"
                   required
+                  placeholder="0.00"
                   value={costoTaller}
                   onChange={(e) => setCostoTaller(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-950 border border-amber-300 dark:border-amber-800 rounded-xl px-3 py-2 text-base font-bold text-slate-900 dark:text-white focus:outline-none font-mono"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
                 />
-                <span className="text-[11px] text-amber-700 dark:text-amber-500 block mt-1">
-                  Tela + Confección + DTF
-                </span>
               </div>
 
-              {/* Detal (1-2 Pzs) */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
+              <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Precio Detal (1-2 Pzs) ($)
+                  Precio Detal (1-2 pzs) ($)
                 </label>
                 <input
                   type="number"
-                  step="0.5"
+                  step="0.01"
                   required
+                  placeholder="0.00"
                   value={precioDetal}
                   onChange={(e) => setPrecioDetal(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-base font-bold text-slate-900 dark:text-white focus:outline-none font-mono"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-mono font-bold text-slate-900 dark:text-white focus:outline-none"
                 />
-                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold block mt-1">
-                  Ganancia: +{formatUSD(gananciaDetal)} ({margenDetal}%)
-                </span>
               </div>
 
-              {/* Promoción (3+ Pzs) */}
-              <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40">
-                <label className="text-xs font-bold text-blue-800 dark:text-blue-300 block mb-1">
-                  A partir de 3 Pzs ($ c/u)
+              <div>
+                <label className="text-xs font-bold text-[#009fe3] block mb-1">
+                  Precio Promo x3 ($)
                 </label>
                 <input
                   type="number"
-                  step="0.5"
-                  required
+                  step="0.01"
+                  placeholder="0.00"
                   value={precio3Piezas}
                   onChange={(e) => setPrecio3Piezas(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-950 border border-blue-300 dark:border-blue-800 rounded-xl px-3 py-2 text-base font-bold text-slate-900 dark:text-white focus:outline-none font-mono"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-mono font-bold text-[#009fe3] focus:outline-none"
                 />
-                <span className="text-xs text-[#009fe3] font-bold block mt-1">
-                  3 Pzs = {formatUSD(tier3Num * 3)}
-                </span>
               </div>
 
-              {/* Mayorista (6+ Pzs) */}
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
-                  Precio Mayor (6+ Pzs) ($)
+              <div>
+                <label className="text-xs font-bold text-emerald-600 block mb-1">
+                  Mayorista 6+ ($)
                 </label>
                 <input
                   type="number"
-                  step="0.5"
-                  required
+                  step="0.01"
+                  placeholder="0.00"
                   value={precioMayor}
                   onChange={(e) => setPrecioMayor(e.target.value)}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-base font-bold text-slate-900 dark:text-white focus:outline-none font-mono"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-2xl px-4 py-3 text-sm font-mono font-bold text-emerald-600 focus:outline-none"
                 />
-                <span className="text-xs text-purple-600 dark:text-purple-400 font-bold block mt-1">
-                  Para revendedores
-                </span>
               </div>
             </div>
           </div>
 
-          {/* SECCIÓN 4: VARIANTES (UNICOLOR VS ESTAMPADOS & TALLAS) */}
+          {/* SECCIÓN 4: GESTIÓN DE VARIANTES Y STOCK */}
           <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
             <h3 className="font-bold text-slate-900 dark:text-white text-lg sm:text-xl flex items-center gap-2.5">
               <Palette className="w-5 h-5 text-purple-500" />
-              <span>Variantes: Tallas, Colores y Estampados</span>
+              <span>Variantes: Tallas, Colores, Estampados y Stock ({variantes.length})</span>
             </h3>
 
-            {/* Formulario rápido de variante */}
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-4">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block">
-                Agregar Variante a esta Prenda:
-              </span>
+            {/* Selector de modo y creación de variante */}
+            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Disponibilidad de la variante a crear:
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewVariantMode('stock')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                      newVariantMode === 'stock'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    <span>📦 En Stock Físico</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewVariantMode('bajo_pedido')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                      newVariantMode === 'bajo_pedido'
+                        ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>⏱️ Bajo Pedido (Sin stock)</span>
+                  </button>
+                </div>
+              </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-                    Talla
-                  </label>
+              {/* Formulario para agregar variante rápida */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                {/* Talla y Botones Rápidos de Talla */}
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Talla</label>
                   <select
                     value={newTalla}
                     onChange={(e) => setNewTalla(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-800 dark:text-white mb-1.5"
                   >
-                    <option value="Talla 2">Talla 2</option>
-                    <option value="Talla 4">Talla 4</option>
-                    <option value="Talla 6">Talla 6</option>
-                    <option value="Talla 8">Talla 8</option>
-                    <option value="Talla 10">Talla 10</option>
-                    <option value="Talla 12">Talla 12</option>
-                    <option value="Talla 14">Talla 14</option>
-                    <option value="S">S (Adulto)</option>
-                    <option value="M">M (Adulto)</option>
-                    <option value="L">L (Adulto)</option>
-                    <option value="XL">XL (Adulto)</option>
+                    <option value="2">Talla 2</option>
+                    <option value="4">Talla 4</option>
+                    <option value="6">Talla 6</option>
+                    <option value="8">Talla 8</option>
+                    <option value="10">Talla 10</option>
+                    <option value="12">Talla 12</option>
+                    <option value="14">Talla 14</option>
+                    <option value="S">Talla S</option>
+                    <option value="M">Talla M</option>
+                    <option value="L">Talla L</option>
+                    <option value="XL">Talla XL</option>
+                    <option value="Única">Talla Única</option>
                   </select>
+
+                  <div className="flex flex-wrap gap-1">
+                    {['S', 'M', 'L', 'XL'].map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setNewTalla(t)}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors cursor-pointer ${
+                          newTalla === t
+                            ? 'bg-[#009fe3] text-white'
+                            : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-                    Tipo de Estilo
-                  </label>
+                {/* Color de la Prenda con Barra de Tono */}
+                <div className="sm:col-span-3">
+                  <ColorTonePicker
+                    colorName={newColorName}
+                    colorHex={newColorHex}
+                    onChange={(name, hex) => {
+                      setNewColorName(name);
+                      setNewColorHex(hex);
+                    }}
+                  />
+                </div>
+
+                {/* Técnica */}
+                <div className="sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Técnica</label>
                   <select
                     value={newTipo}
-                    onChange={(e) => setNewTipo(e.target.value as VariantStyleType)}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none cursor-pointer"
+                    onChange={(e) => setNewTipo(e.target.value as any)}
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-800 dark:text-white"
                   >
                     <option value="sublimacion">Sublimación</option>
-                    <option value="vinil">Vinil</option>
-                    <option value="dtf">DTF</option>
+                    <option value="dtf">Estampado DTF</option>
+                    <option value="vinil">Vinil Textil</option>
                     <option value="unicolor">Unicolor Liso</option>
+                    <option value="estampado">Estampado General</option>
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-                    {newTipo === 'unicolor' ? 'Color de Tela' : 'Nombre Estampa / Diseño'}
-                  </label>
+                {/* Nombre / Estampa */}
+                <div className="sm:col-span-3">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Nombre / Estampa (Opcional)</label>
                   <input
                     type="text"
                     value={newNombreVar}
                     onChange={(e) => setNewNombreVar(e.target.value)}
-                    placeholder={
-                      newTipo === 'sublimacion'
-                        ? 'Ej: Spiderman Full Color'
-                        : newTipo === 'vinil'
-                        ? 'Ej: Logo Vinil Dorado'
-                        : newTipo === 'dtf'
-                        ? 'Ej: Estampa DTF Pecho'
-                        : 'Ej: Azul Marino'
-                    }
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none"
+                    placeholder="Ej: Los Ángeles o Mickey"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white font-medium"
                   />
                 </div>
 
-                <div>
-                  <label className="text-xs text-slate-500 dark:text-slate-400 block mb-1">
-                    Stock Disponible
-                  </label>
-                  <input
-                    type="number"
-                    value={newStock}
-                    onChange={(e) => setNewStock(e.target.value)}
-                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2.5 text-sm font-mono text-slate-900 dark:text-white focus:outline-none"
-                  />
-                </div>
+                {/* Stock (Oculto si es Bajo Pedido) */}
+                {newVariantMode === 'stock' ? (
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Stock (piezas)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newStock}
+                      onChange={(e) => setNewStock(e.target.value)}
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 dark:text-white text-center"
+                    />
+                  </div>
+                ) : (
+                  <div className="sm:col-span-2 flex items-center justify-center p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 text-[11px] font-bold">
+                    ⏱️ Confección
+                  </div>
+                )}
 
-                <div className="flex items-end">
+                {/* Botón Añadir */}
+                <div className="sm:col-span-12 flex items-center justify-between pt-1 flex-wrap gap-2">
+                  <div className="text-xs text-slate-500 font-medium">
+                    Prenda: <strong className="text-slate-800 dark:text-slate-200">{newColorName}</strong> • Talla <strong className="text-slate-800 dark:text-slate-200">{newTalla}</strong> • {newVariantMode === 'stock' ? `${newStock} pzs` : 'Bajo pedido'}
+                  </div>
                   <button
                     type="button"
                     onClick={handleAddVariant}
-                    className="w-full flex items-center justify-center gap-1.5 bg-[#009fe3] hover:bg-[#0082ba] text-white py-2.5 px-4 rounded-xl text-sm font-bold shadow-md cursor-pointer active:scale-95 transition-all"
+                    className="inline-flex items-center gap-1.5 bg-[#009fe3] hover:bg-[#0082ba] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-sm"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Añadir</span>
+                    <span>Añadir Variante a este Color</span>
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Listado de variantes añadidas */}
-            <div className="space-y-2.5">
-              <span className="text-sm font-bold text-slate-700 dark:text-slate-300 block">
-                Variantes en esta Prenda ({variantes.length}):
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {variantes.map((v) => (
-                  <div
-                    key={v.id}
-                    className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600 shrink-0"
-                        style={{ backgroundColor: v.codigo_hex }}
+            {/* Listado de variantes existentes agrupadas por Color */}
+            <div className="space-y-4">
+              {Object.entries(
+                variantes.reduce((acc, v) => {
+                  const colKey = v.color_base || v.nombre_variante || 'Color Estándar';
+                  if (!acc[colKey]) {
+                    acc[colKey] = {
+                      colorName: colKey,
+                      colorHex: v.codigo_hex || '#009fe3',
+                      items: [],
+                    };
+                  }
+                  acc[colKey].items.push(v);
+                  return acc;
+                }, {} as Record<string, { colorName: string; colorHex: string; items: ProductVariant[] }>)
+              ).map(([colKey, group]) => (
+                <div
+                  key={colKey}
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-white dark:bg-slate-900/60 shadow-xs"
+                >
+                  {/* Encabezado del grupo de color */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className="w-4 h-4 rounded-full border border-slate-300 shadow-xs shrink-0"
+                        style={{ backgroundColor: group.colorHex }}
                       />
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-white text-sm">
-                          {v.talla} • {v.nombre_variante}
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          {v.tipo_variante === 'sublimacion'
-                            ? 'Sublimación'
-                            : v.tipo_variante === 'vinil'
-                            ? 'Vinil'
-                            : v.tipo_variante === 'dtf'
-                            ? 'DTF'
-                            : v.tipo_variante === 'unicolor'
-                            ? 'Unicolor'
-                            : 'Estampa'}{' '}
-                          • Stock:{' '}
-                          <strong className="text-slate-900 dark:text-white">{v.stock_disponible} pzs</strong>
-                        </div>
-                      </div>
+                      <span className="font-black text-xs sm:text-sm text-slate-800 dark:text-white">
+                        {group.colorName}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-medium">
+                        ({group.items.length} {group.items.length === 1 ? 'talla' : 'tallas'})
+                      </span>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveVariant(v.id)}
-                      className="text-slate-400 hover:text-rose-500 p-1.5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                ))}
-              </div>
+
+                  {/* Tallas de este color */}
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                    {group.items.map((v) => {
+                      const isBajoPedido = v.stock_disponible <= 0;
+                      return (
+                        <div
+                          key={v.id}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-3 gap-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="text-xs bg-blue-500/15 text-[#009fe3] px-2.5 py-0.5 rounded-lg font-black">
+                              Talla {v.talla}
+                            </span>
+                            {v.nombre_variante && v.nombre_variante !== v.color_base && (
+                              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                {v.nombre_variante}
+                              </span>
+                            )}
+                            <span className="text-[11px] text-slate-400 capitalize">
+                              ({v.tipo_variante})
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-3 justify-between sm:justify-end">
+                            {/* Control de Stock editable / Estado Bajo Pedido */}
+                            {isBajoPedido ? (
+                              <div className="flex items-center gap-2">
+                                <span className="px-2.5 py-1 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold text-xs flex items-center gap-1 border border-amber-500/20">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>Bajo Pedido</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStock(v.id)}
+                                  className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 underline cursor-pointer"
+                                >
+                                  + Asignar Stock
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-500 font-medium">Stock:</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={v.stock_disponible}
+                                  onChange={(e) => handleStockChange(v.id, parseInt(e.target.value, 10) || 0)}
+                                  className="w-16 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2 py-1 text-center font-mono font-bold text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#009fe3]"
+                                  title="Editar stock directamente"
+                                />
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">pzs</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleBajoPedido(v.id)}
+                                  className="text-[11px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 underline cursor-pointer ml-1"
+                                >
+                                  Cambiar a Bajo Pedido
+                                </button>
+                              </div>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveVariant(v.id)}
+                              className="text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 cursor-pointer"
+                              title="Eliminar talla"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -877,7 +935,7 @@ export default function NuevoProductoPage() {
             </button>
           </div>
         </form>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

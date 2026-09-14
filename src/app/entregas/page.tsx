@@ -248,12 +248,17 @@ export default function EntregasPage() {
                   className={`text-base font-black ${
                     config?.entregas_caracas_activas
                       ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-amber-600 dark:text-amber-400'
+                      : 'text-rose-600 dark:text-rose-400'
                   }`}
                 >
                   {config?.entregas_caracas_activas
                     ? 'VIAJE CONFIRMADO ESTE SÁBADO'
-                    : 'PAUSADO ESTA SEMANA'}
+                    : 'SUSPENDIDA ESTA SEMANA'}
+                </span>
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mt-0.5">
+                  {config?.entregas_caracas_activas
+                    ? 'Caracas (Plaza Vzla) • Los Teques y San Antonio'
+                    : 'Activo delivery en San Antonio y Los Teques'}
                 </span>
               </div>
 
